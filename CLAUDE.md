@@ -29,6 +29,10 @@ Both of these deviate from what a literal read of the original spec would produc
 
 **2. The phone slot is a through-cut sized for the tilt.** Reach below the opening along the slot's *tilted* axis must be at least `(SLAB_THICKNESS + slot_t/2 · sin θ) / cos θ`. The `slot_t/2 · sin θ` term matters because the slot's bottom face is itself tilted — its high corner on the +Y side lags the cutter tip by that amount in world-Z. A naive `SLAB_THICKNESS / cos θ` leaves a sliver of floor near the +Y bottom edge. See `_build_slot_cutter` for the derivation in comments.
 
+## Code style
+
+Python is formatted with [black](https://black.readthedocs.io/) (pinned in `requirements-dev.txt`). Run `.venv/bin/black generate.py` after edits — black is the source of truth, so don't hand-align constants or wrap lines manually.
+
 ## Boolean-robustness conventions
 
 Both the tail and the mortise factories use a `_FACE_OVERLAP_MM` tab on the narrow side of their trapezoid so the Boolean op never has to resolve a face coincident with the slab's ±Y face. The slot cutter does the same via `_SLOT_TOP_OVERSHOOT_MM` / `_SLOT_BOTTOM_OVERSHOOT_MM`. If you add a new feature that cuts or fuses to a slab face, follow the same pattern — coincident-face booleans in OCCT are flaky and the artifacts only show up after STL export.

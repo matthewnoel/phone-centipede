@@ -24,3 +24,15 @@ With a few overrides:
 ```sh
 .venv/bin/python generate.py --phone-width 80 --phone-thickness 12 --output thicker_phone.stl
 ```
+
+## Development
+
+```sh
+uv pip install -r requirements-dev.txt
+```
+
+Format the code
+
+```sh
+.venv/bin/black generate.py
+```

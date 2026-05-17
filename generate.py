@@ -29,21 +29,21 @@ from build123d import (
 )
 
 # === Slab (base of one segment) =============================================
-SEGMENT_LENGTH_MM      = 101.6   # X: length along desk-edge direction
-SEGMENT_DEPTH_MM       = 55.0    # Y: front-to-back depth
-SLAB_THICKNESS_MM      = 18.8    # Z: vertical thickness
+SEGMENT_LENGTH_MM = 101.6  # X: length along desk-edge direction
+SEGMENT_DEPTH_MM = 55.0  # Y: front-to-back depth
+SLAB_THICKNESS_MM = 18.8  # Z: vertical thickness
 
 # === Phone slot =============================================================
 # The slot is a through-hole: a phone seated in it rests on whatever surface
 # the stand sits on (the desk), not on a floor inside the slab.
-PHONE_WIDTH_MM            = 78.0   # phone's face long-edge dimension (along X)
-PHONE_THICKNESS_MM        = 10.0   # phone's thickness (perpendicular to face)
-SLOT_ANGLE_DEG            = 10.0   # slot tilt off vertical, leaning toward +Y
-SLOT_TOLERANCE_MM         = 1.0    # uniform inflation of slot vs phone dims
-SLOT_X_MM                 = SEGMENT_LENGTH_MM / 2  # slot center X from -X end
-SLOT_Y_OFFSET_MM          = 0.0    # slot center Y (0 = mid-depth of slab)
-_SLOT_TOP_OVERSHOOT_MM    = 6.0    # cutter extends above slab top for clean cut
-_SLOT_BOTTOM_OVERSHOOT_MM = 5.0    # cutter extends below slab bottom for clean cut
+PHONE_WIDTH_MM = 78.0  # phone's face long-edge dimension (along X)
+PHONE_THICKNESS_MM = 10.0  # phone's thickness (perpendicular to face)
+SLOT_ANGLE_DEG = 10.0  # slot tilt off vertical, leaning toward +Y
+SLOT_TOLERANCE_MM = 1.0  # uniform inflation of slot vs phone dims
+SLOT_X_MM = SEGMENT_LENGTH_MM / 2  # slot center X from -X end
+SLOT_Y_OFFSET_MM = 0.0  # slot center Y (0 = mid-depth of slab)
+_SLOT_TOP_OVERSHOOT_MM = 6.0  # cutter extends above slab top for clean cut
+_SLOT_BOTTOM_OVERSHOOT_MM = 5.0  # cutter extends below slab bottom for clean cut
 
 # === Dovetail joints ========================================================
 # Tails (male) on +Y face; mortises (female) on -Y face. When a segment is
@@ -57,12 +57,12 @@ _SLOT_BOTTOM_OVERSHOOT_MM = 5.0    # cutter extends below slab bottom for clean 
 #   - the mortise opens at the slab's bottom face, giving the tail an actual
 #     entry path when sliding the joint together (a centered mortise is a
 #     closed internal cavity with no way to mate).
-DOVETAIL_WIDE_MM       = 12.0    # wider end (outward), along X
-DOVETAIL_NARROW_MM     = 8.0     # narrower end (at slab face), along X
-DOVETAIL_PROTRUSION_MM = 6.0     # how far the tail sticks out (along Y)
-DOVETAIL_HEIGHT_MM     = 10.0    # vertical (Z) extent, bottom-flush with slab
-DOVETAIL_X_INSET_MM    = 15.0    # from each X-end to nearest dovetail center
-DOVETAIL_CLEARANCE_MM  = 0.3     # uniform mortise inflation vs tail
+DOVETAIL_WIDE_MM = 12.0  # wider end (outward), along X
+DOVETAIL_NARROW_MM = 8.0  # narrower end (at slab face), along X
+DOVETAIL_PROTRUSION_MM = 6.0  # how far the tail sticks out (along Y)
+DOVETAIL_HEIGHT_MM = 10.0  # vertical (Z) extent, bottom-flush with slab
+DOVETAIL_X_INSET_MM = 15.0  # from each X-end to nearest dovetail center
+DOVETAIL_CLEARANCE_MM = 0.3  # uniform mortise inflation vs tail
 
 # Tiny in-slab overlap used when adding tails / cutting mortises, so the
 # Boolean ops never touch a coincident slab face.
@@ -74,6 +74,7 @@ DEFAULT_OUTPUT = "phone-centipede.stl"
 # ----------------------------------------------------------------------------
 # Geometry helpers
 # ----------------------------------------------------------------------------
+
 
 def _trapezoid_face(w_narrow: float, w_wide: float, depth: float, base_overlap: float):
     """Trapezoidal face in the XY plane, used for both tails and mortises.
@@ -87,18 +88,18 @@ def _trapezoid_face(w_narrow: float, w_wide: float, depth: float, base_overlap: 
     if base_overlap > 0:
         pts = [
             (-w_narrow / 2, -base_overlap),
-            ( w_narrow / 2, -base_overlap),
-            ( w_narrow / 2, 0.0),
-            ( w_wide   / 2, depth),
-            (-w_wide   / 2, depth),
+            (w_narrow / 2, -base_overlap),
+            (w_narrow / 2, 0.0),
+            (w_wide / 2, depth),
+            (-w_wide / 2, depth),
             (-w_narrow / 2, 0.0),
         ]
     else:
         pts = [
             (-w_narrow / 2, 0.0),
-            ( w_narrow / 2, 0.0),
-            ( w_wide   / 2, depth),
-            (-w_wide   / 2, depth),
+            (w_narrow / 2, 0.0),
+            (w_wide / 2, depth),
+            (-w_wide / 2, depth),
         ]
     return make_face(Polyline(*pts, close=True))
 
@@ -124,7 +125,7 @@ def _build_mortise():
     c = DOVETAIL_CLEARANCE_MM
     face = _trapezoid_face(
         DOVETAIL_NARROW_MM + 2 * c,
-        DOVETAIL_WIDE_MM   + 2 * c,
+        DOVETAIL_WIDE_MM + 2 * c,
         DOVETAIL_PROTRUSION_MM + 2 * c,
         base_overlap=_FACE_OVERLAP_MM,
     )
@@ -144,7 +145,9 @@ def _build_slot_cutter(slot_w: float, slot_t: float, angle_deg: float):
     """
     cos_a = math.cos(math.radians(angle_deg))
     sin_a = math.sin(math.radians(angle_deg))
-    bot_extent = (SLAB_THICKNESS_MM + slot_t / 2 * sin_a) / cos_a + _SLOT_BOTTOM_OVERSHOOT_MM
+    bot_extent = (
+        SLAB_THICKNESS_MM + slot_t / 2 * sin_a
+    ) / cos_a + _SLOT_BOTTOM_OVERSHOOT_MM
     top_extent = _SLOT_TOP_OVERSHOOT_MM
     total_len = bot_extent + top_extent
     cutter = Box(slot_w, slot_t, total_len)
@@ -159,6 +162,7 @@ def _build_slot_cutter(slot_w: float, slot_t: float, angle_deg: float):
 # ----------------------------------------------------------------------------
 # Assembly
 # ----------------------------------------------------------------------------
+
 
 def build_segment(
     *,
@@ -183,7 +187,7 @@ def build_segment(
     # --- Dovetail tails on +Y face (back) -----------------------------------
     tail = _build_tail()
     slab = slab + tail.translate((-L / 2 + DOVETAIL_X_INSET_MM, D / 2, 0))
-    slab = slab + tail.translate(( L / 2 - DOVETAIL_X_INSET_MM, D / 2, 0))
+    slab = slab + tail.translate((L / 2 - DOVETAIL_X_INSET_MM, D / 2, 0))
 
     # --- Dovetail mortises on -Y face (front) -------------------------------
     # The mortise face is authored narrow-at-y=0, wide-at-y=+depth, with the
@@ -193,7 +197,7 @@ def build_segment(
     # at the slab's bottom face so the tail can slide in vertically.
     mortise = _build_mortise()
     slab = slab - mortise.translate((-L / 2 + DOVETAIL_X_INSET_MM, -D / 2, 0))
-    slab = slab - mortise.translate(( L / 2 - DOVETAIL_X_INSET_MM, -D / 2, 0))
+    slab = slab - mortise.translate((L / 2 - DOVETAIL_X_INSET_MM, -D / 2, 0))
 
     return slab
 
@@ -201,6 +205,7 @@ def build_segment(
 # ----------------------------------------------------------------------------
 # CLI
 # ----------------------------------------------------------------------------
+
 
 def _parse_args():
     p = argparse.ArgumentParser(
@@ -210,17 +215,30 @@ def _parse_args():
         ),
     )
     p.add_argument(
-        "--phone-width", type=float, default=PHONE_WIDTH_MM, metavar="MM",
-        help=("Long dimension of the phone slot (parallel to X — the long edge "
-              f"of the phone's face). Default: {PHONE_WIDTH_MM} mm."),
+        "--phone-width",
+        type=float,
+        default=PHONE_WIDTH_MM,
+        metavar="MM",
+        help=(
+            "Long dimension of the phone slot (parallel to X — the long edge "
+            f"of the phone's face). Default: {PHONE_WIDTH_MM} mm."
+        ),
     )
     p.add_argument(
-        "--phone-thickness", type=float, default=PHONE_THICKNESS_MM, metavar="MM",
-        help=("Short dimension of the phone slot (the phone's thickness, "
-              f"perpendicular to its face). Default: {PHONE_THICKNESS_MM} mm."),
+        "--phone-thickness",
+        type=float,
+        default=PHONE_THICKNESS_MM,
+        metavar="MM",
+        help=(
+            "Short dimension of the phone slot (the phone's thickness, "
+            f"perpendicular to its face). Default: {PHONE_THICKNESS_MM} mm."
+        ),
     )
     p.add_argument(
-        "--output", type=Path, default=Path(DEFAULT_OUTPUT), metavar="PATH",
+        "--output",
+        type=Path,
+        default=Path(DEFAULT_OUTPUT),
+        metavar="PATH",
         help=f"STL output path. Default: {DEFAULT_OUTPUT}",
     )
     return p.parse_args()
@@ -230,7 +248,9 @@ def main():
     args = _parse_args()
 
     print("Phone holder segment — resolved parameters:")
-    print(f"  Slab (L x D x T)     : {SEGMENT_LENGTH_MM} x {SEGMENT_DEPTH_MM} x {SLAB_THICKNESS_MM} mm")
+    print(
+        f"  Slab (L x D x T)     : {SEGMENT_LENGTH_MM} x {SEGMENT_DEPTH_MM} x {SLAB_THICKNESS_MM} mm"
+    )
     print(f"  Phone width  (X)     : {args.phone_width} mm")
     print(f"  Phone thickness      : {args.phone_thickness} mm")
     print(f"  Slot tolerance       : {SLOT_TOLERANCE_MM} mm (slot cuts fully through)")
