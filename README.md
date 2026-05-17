@@ -22,7 +22,7 @@ uv pip install -r requirements.txt
 With a few overrides:
 
 ```sh
-.venv/bin/python generate.py --phone-width 80 --phone-thickness 12 --output thicker_phone.stl
+.venv/bin/python generate.py --phone-width 80 --phone-height 150 --phone-thickness 12 --output custom_filename.stl
 ```
 
 ## Development
