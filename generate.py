@@ -30,20 +30,31 @@ from build123d import (
 
 # === Slab (base of one segment) =============================================
 SEGMENT_LENGTH_MM = 101.6  # X: length along desk-edge direction
-SEGMENT_DEPTH_MM = 55.0  # Y: front-to-back depth
 SLAB_THICKNESS_MM = 18.8  # Z: vertical thickness
+# Slab depth (Y) is no longer fixed — it is derived from --phone-height by
+# `_depth_and_slot_y` so the phone's center of gravity lands at the segment
+# midpoint.
 
 # === Phone slot =============================================================
 # The slot is a through-hole: a phone seated in it rests on whatever surface
 # the stand sits on (the desk), not on a floor inside the slab.
 PHONE_WIDTH_MM = 78.0  # phone's face long-edge dimension (along X)
 PHONE_THICKNESS_MM = 10.0  # phone's thickness (perpendicular to face)
+PHONE_HEIGHT_MM = 150.0  # phone dimension along the tilted slot axis (drives depth)
 SLOT_ANGLE_DEG = 10.0  # slot tilt off vertical, leaning toward +Y
 SLOT_TOLERANCE_MM = 1.0  # uniform inflation of slot vs phone dims
 SLOT_X_MM = SEGMENT_LENGTH_MM / 2  # slot center X from -X end
-SLOT_Y_OFFSET_MM = -8.0  # slot center Y (0 = mid-depth of slab)
+# Distance from slab front face (-D/2) to slot center. Held constant as D
+# varies with --phone-height so the front wall between mortise cavities and
+# the slot stays a consistent thickness.
+SLOT_FRONT_OFFSET_MM = 19.5
 _SLOT_TOP_OVERSHOOT_MM = 6.0  # cutter extends above slab top for clean cut
 _SLOT_BOTTOM_OVERSHOOT_MM = 5.0  # cutter extends below slab bottom for clean cut
+# Minimum allowed wall between slot back edge (at z=T) and slab back face.
+# `_depth_and_slot_y` raises ValueError if --phone-height is too small to
+# leave at least this much; below ~3 mm the back wall is fragile in FDM and
+# starts overlapping the dovetail-tail root overlap zone.
+_MIN_BACK_WALL_MM = 3.0
 
 # === Dovetail joints ========================================================
 # Tails (male) on +Y face; mortises (female) on -Y face. When a segment is
@@ -164,14 +175,56 @@ def _build_slot_cutter(slot_w: float, slot_t: float, angle_deg: float):
 # ----------------------------------------------------------------------------
 
 
+def _depth_and_slot_y(
+    phone_height: float, phone_thickness: float
+) -> tuple[float, float]:
+    """Solve for slab depth D and slot center Y from phone height.
+
+    Keeps SLOT_FRONT_OFFSET_MM constant (front wall between mortise cavities
+    and slot is invariant), and lands the phone's CoG at the full
+    segment-footprint midpoint — i.e. world Y = +DOVETAIL_PROTRUSION_MM/2,
+    where the footprint runs from slab front face -D/2 to tail tip
+    D/2 + DOVETAIL_PROTRUSION_MM.
+
+    Derivation: slot_y = -D/2 + SLOT_FRONT_OFFSET_MM is the slot center at
+    z=T. At z=0 the slot center is slot_y - T*tan(θ) (the slot tilts toward
+    +Y, so its bottom is more -Y than its top). The phone bottom rests on
+    the desk at z=0; its CoG is H/2 up the tilted axis, giving
+    y_cog = slot_y - T*tan(θ) + (H/2)*sin(θ). Setting y_cog =
+    DOVETAIL_PROTRUSION_MM/2 yields
+        D = 2*SLOT_FRONT_OFFSET_MM - 2*T*tan(θ) + H*sin(θ) - DOVETAIL_PROTRUSION_MM.
+
+    The phone's bottom contact edge actually sits (slot_t/2)*sin²(θ)/cos(θ)
+    on the +Y side of the slot centerline (~0.17 mm at default tilt), which
+    would shift the CoG by the same amount; below FDM precision and ignored.
+    """
+    theta = math.radians(SLOT_ANGLE_DEG)
+    D = (
+        2 * SLOT_FRONT_OFFSET_MM
+        - 2 * SLAB_THICKNESS_MM * math.tan(theta)
+        + phone_height * math.sin(theta)
+        - DOVETAIL_PROTRUSION_MM
+    )
+    slot_y = -D / 2 + SLOT_FRONT_OFFSET_MM
+    slot_t = phone_thickness + SLOT_TOLERANCE_MM
+    back_wall = D / 2 - slot_y - slot_t / (2 * math.cos(theta))
+    if back_wall < _MIN_BACK_WALL_MM:
+        raise ValueError(
+            f"phone_height={phone_height} mm gives back wall {back_wall:.2f} mm "
+            f"(< {_MIN_BACK_WALL_MM} mm minimum). Increase --phone-height."
+        )
+    return D, slot_y
+
+
 def build_segment(
     *,
     phone_width: float,
     phone_thickness: float,
+    phone_height: float,
 ):
     L = SEGMENT_LENGTH_MM
-    D = SEGMENT_DEPTH_MM
     T = SLAB_THICKNESS_MM
+    D, slot_y = _depth_and_slot_y(phone_height, phone_thickness)
 
     # Slab centered in X and Y; bottom on z=0 (the desk surface).
     slab = Box(L, D, T).translate((0, 0, T / 2))
@@ -181,7 +234,7 @@ def build_segment(
     slot_t = phone_thickness + SLOT_TOLERANCE_MM
     slot = _build_slot_cutter(slot_w, slot_t, SLOT_ANGLE_DEG)
     # SLOT_X_MM is measured from the -X end of the slab; world center is x=0.
-    slot = slot.translate((SLOT_X_MM - L / 2, SLOT_Y_OFFSET_MM, T))
+    slot = slot.translate((SLOT_X_MM - L / 2, slot_y, T))
     slab = slab - slot
 
     # --- Dovetail tails on +Y face (back) -----------------------------------
@@ -235,6 +288,17 @@ def _parse_args():
         ),
     )
     p.add_argument(
+        "--phone-height",
+        type=float,
+        default=PHONE_HEIGHT_MM,
+        metavar="MM",
+        help=(
+            "Phone dimension along the tilted slot axis. Drives slab depth "
+            "so the phone's center of gravity lands at the segment midpoint. "
+            f"Default: {PHONE_HEIGHT_MM} mm."
+        ),
+    )
+    p.add_argument(
         "--output",
         type=Path,
         default=Path(DEFAULT_OUTPUT),
@@ -247,16 +311,19 @@ def _parse_args():
 def main():
     args = _parse_args()
 
+    D, slot_y = _depth_and_slot_y(args.phone_height, args.phone_thickness)
+
     print("Phone holder segment — resolved parameters:")
     print(
-        f"  Slab (L x D x T)     : {SEGMENT_LENGTH_MM} x {SEGMENT_DEPTH_MM} x {SLAB_THICKNESS_MM} mm"
+        f"  Slab (L x D x T)     : {SEGMENT_LENGTH_MM} x {D:.2f} x {SLAB_THICKNESS_MM} mm"
     )
     print(f"  Phone width  (X)     : {args.phone_width} mm")
     print(f"  Phone thickness      : {args.phone_thickness} mm")
+    print(f"  Phone height         : {args.phone_height} mm")
     print(f"  Slot tolerance       : {SLOT_TOLERANCE_MM} mm (slot cuts fully through)")
     print(f"  Slot angle           : {SLOT_ANGLE_DEG} deg (toward +Y)")
     print(f"  Slot X (from -X end) : {SLOT_X_MM} mm")
-    print(f"  Slot Y offset        : {SLOT_Y_OFFSET_MM} mm")
+    print(f"  Slot Y offset        : {slot_y:.2f} mm")
     print(f"  Dovetail wide/narrow : {DOVETAIL_WIDE_MM} / {DOVETAIL_NARROW_MM} mm")
     print(f"  Dovetail protrusion  : {DOVETAIL_PROTRUSION_MM} mm")
     print(f"  Dovetail height  (Z) : {DOVETAIL_HEIGHT_MM} mm")
@@ -268,6 +335,7 @@ def main():
     segment = build_segment(
         phone_width=args.phone_width,
         phone_thickness=args.phone_thickness,
+        phone_height=args.phone_height,
     )
 
     out_path = args.output

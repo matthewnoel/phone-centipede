@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A single-file Python CLI (`generate.py`) that uses `build123d` to produce an STL for one segment of a sectioned, dovetail-mating desk phone holder. Multiple printed segments connect front-to-back via the dovetails. All geometry is parameterized via named constants at the top of `generate.py`; a small subset is exposed via argparse — see `--help`. Default output is `phone-centipede.stl` in CWD.
 
-There are no tests. The artifact is verified by re-slicing in Bambu Studio; for quick sanity checks, inspect the STL's bounding box (default: X = ±50.8, Y = -27.5..+33.5 — slab depth + 6 mm tail protrusion on +Y — Z = 0..18.8).
+There are no tests. The artifact is verified by re-slicing in Bambu Studio; for quick sanity checks, inspect the STL's bounding box (default args: X = ±50.8, Y ≈ -26.21..+32.21 — slab depth ≈ 52.42 mm + 6 mm tail protrusion on +Y, Z = 0..18.8). Slab depth is now derived from `--phone-height` by `_depth_and_slot_y` (so the phone CoG lands at the segment-footprint midpoint); the front-of-slab → slot-center distance is held constant at `SLOT_FRONT_OFFSET_MM = 19.5`.
 
 ## Coordinate system
 
