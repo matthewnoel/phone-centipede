@@ -40,7 +40,7 @@ PHONE_WIDTH_MM            = 78.0   # phone's face long-edge dimension (along X)
 PHONE_THICKNESS_MM        = 10.0   # phone's thickness (perpendicular to face)
 SLOT_ANGLE_DEG            = 10.0   # slot tilt off vertical, leaning toward +Y
 SLOT_TOLERANCE_MM         = 1.0    # uniform inflation of slot vs phone dims
-SLOT_X_DEFAULT_MM         = SEGMENT_LENGTH_MM / 2  # slot center X from -X end
+SLOT_X_MM                 = SEGMENT_LENGTH_MM / 2  # slot center X from -X end
 SLOT_Y_OFFSET_MM          = 0.0    # slot center Y (0 = mid-depth of slab)
 _SLOT_TOP_OVERSHOOT_MM    = 6.0    # cutter extends above slab top for clean cut
 _SLOT_BOTTOM_OVERSHOOT_MM = 5.0    # cutter extends below slab bottom for clean cut
@@ -164,8 +164,6 @@ def build_segment(
     *,
     phone_width: float,
     phone_thickness: float,
-    slot_x_from_neg_end: float,
-    slot_angle_deg: float,
 ):
     L = SEGMENT_LENGTH_MM
     D = SEGMENT_DEPTH_MM
@@ -177,9 +175,9 @@ def build_segment(
     # --- Phone slot ---------------------------------------------------------
     slot_w = phone_width + SLOT_TOLERANCE_MM
     slot_t = phone_thickness + SLOT_TOLERANCE_MM
-    slot = _build_slot_cutter(slot_w, slot_t, slot_angle_deg)
-    # slot_x is measured from the -X end of the slab; world center is at x=0.
-    slot = slot.translate((slot_x_from_neg_end - L / 2, SLOT_Y_OFFSET_MM, T))
+    slot = _build_slot_cutter(slot_w, slot_t, SLOT_ANGLE_DEG)
+    # SLOT_X_MM is measured from the -X end of the slab; world center is x=0.
+    slot = slot.translate((SLOT_X_MM - L / 2, SLOT_Y_OFFSET_MM, T))
     slab = slab - slot
 
     # --- Dovetail tails on +Y face (back) -----------------------------------
@@ -222,17 +220,6 @@ def _parse_args():
               f"perpendicular to its face). Default: {PHONE_THICKNESS_MM} mm."),
     )
     p.add_argument(
-        "--slot-x", type=float, default=SLOT_X_DEFAULT_MM, metavar="MM",
-        help=("X position of the slot's center, measured from the segment's "
-              f"-X end (so 0 = left end, {SEGMENT_LENGTH_MM} = right end). "
-              f"Default: {SLOT_X_DEFAULT_MM} mm (center)."),
-    )
-    p.add_argument(
-        "--slot-angle", type=float, default=SLOT_ANGLE_DEG, metavar="DEG",
-        help=("Slot tilt off vertical, leaning toward +Y (the direction the "
-              f"phone leans). Default: {SLOT_ANGLE_DEG} degrees."),
-    )
-    p.add_argument(
         "--output", type=Path, default=Path(DEFAULT_OUTPUT), metavar="PATH",
         help=f"STL output path. Default: {DEFAULT_OUTPUT}",
     )
@@ -247,8 +234,8 @@ def main():
     print(f"  Phone width  (X)     : {args.phone_width} mm")
     print(f"  Phone thickness      : {args.phone_thickness} mm")
     print(f"  Slot tolerance       : {SLOT_TOLERANCE_MM} mm (slot cuts fully through)")
-    print(f"  Slot angle           : {args.slot_angle} deg (toward +Y)")
-    print(f"  Slot X (from -X end) : {args.slot_x} mm")
+    print(f"  Slot angle           : {SLOT_ANGLE_DEG} deg (toward +Y)")
+    print(f"  Slot X (from -X end) : {SLOT_X_MM} mm")
     print(f"  Slot Y offset        : {SLOT_Y_OFFSET_MM} mm")
     print(f"  Dovetail wide/narrow : {DOVETAIL_WIDE_MM} / {DOVETAIL_NARROW_MM} mm")
     print(f"  Dovetail protrusion  : {DOVETAIL_PROTRUSION_MM} mm")
@@ -261,8 +248,6 @@ def main():
     segment = build_segment(
         phone_width=args.phone_width,
         phone_thickness=args.phone_thickness,
-        slot_x_from_neg_end=args.slot_x,
-        slot_angle_deg=args.slot_angle,
     )
 
     out_path = args.output
