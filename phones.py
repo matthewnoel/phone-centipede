@@ -1,4 +1,4 @@
-"""Estimated outer dimensions of common phones, used by --phone in generate.py.
+"""Known outer dimensions of common phones, used by --phone in generate.py.
 
 Keys match the kwarg names accepted by build_segment(): phone_width is the
 phone's face dimension along X (short side when the phone sits portrait in
