@@ -28,6 +28,8 @@ from build123d import (
     make_face,
 )
 
+from phones import lookup as lookup_phone
+
 # === Slab (base of one segment) =============================================
 SEGMENT_LENGTH_MM = 101.6  # X: length along desk-edge direction
 SLAB_THICKNESS_MM = 18.8  # Z: vertical thickness
@@ -268,9 +270,20 @@ def _parse_args():
         ),
     )
     p.add_argument(
+        "--phone",
+        type=str,
+        default=None,
+        metavar="MODEL",
+        help=(
+            "Load phone dimensions from the named model in phones.py "
+            "(e.g. iPhone17Pro). Individual --phone-width/--phone-thickness/"
+            "--phone-height flags override values from the model."
+        ),
+    )
+    p.add_argument(
         "--phone-width",
         type=float,
-        default=PHONE_WIDTH_MM,
+        default=None,
         metavar="MM",
         help=(
             "Long dimension of the phone slot (parallel to X — the long edge "
@@ -280,7 +293,7 @@ def _parse_args():
     p.add_argument(
         "--phone-thickness",
         type=float,
-        default=PHONE_THICKNESS_MM,
+        default=None,
         metavar="MM",
         help=(
             "Short dimension of the phone slot (the phone's thickness, "
@@ -290,7 +303,7 @@ def _parse_args():
     p.add_argument(
         "--phone-height",
         type=float,
-        default=PHONE_HEIGHT_MM,
+        default=None,
         metavar="MM",
         help=(
             "Phone dimension along the tilted slot axis. Drives slab depth "
@@ -311,15 +324,36 @@ def _parse_args():
 def main():
     args = _parse_args()
 
-    D, slot_y = _depth_and_slot_y(args.phone_height, args.phone_thickness)
+    if args.phone is not None:
+        try:
+            config = lookup_phone(args.phone)
+        except ValueError as e:
+            raise SystemExit(str(e))
+    else:
+        config = {}
+
+    def _resolve(cli_value, key, fallback):
+        if cli_value is not None:
+            return cli_value
+        return config.get(key, fallback)
+
+    phone_width = _resolve(args.phone_width, "phone_width", PHONE_WIDTH_MM)
+    phone_thickness = _resolve(
+        args.phone_thickness, "phone_thickness", PHONE_THICKNESS_MM
+    )
+    phone_height = _resolve(args.phone_height, "phone_height", PHONE_HEIGHT_MM)
+
+    D, slot_y = _depth_and_slot_y(phone_height, phone_thickness)
 
     print("Phone holder segment — resolved parameters:")
     print(
         f"  Slab (L x D x T)     : {SEGMENT_LENGTH_MM} x {D:.2f} x {SLAB_THICKNESS_MM} mm"
     )
-    print(f"  Phone width  (X)     : {args.phone_width} mm")
-    print(f"  Phone thickness      : {args.phone_thickness} mm")
-    print(f"  Phone height         : {args.phone_height} mm")
+    if args.phone is not None:
+        print(f"  Phone model          : {args.phone}")
+    print(f"  Phone width  (X)     : {phone_width} mm")
+    print(f"  Phone thickness      : {phone_thickness} mm")
+    print(f"  Phone height         : {phone_height} mm")
     print(f"  Slot tolerance       : {SLOT_TOLERANCE_MM} mm (slot cuts fully through)")
     print(f"  Slot angle           : {SLOT_ANGLE_DEG} deg (toward +Y)")
     print(f"  Slot X (from -X end) : {SLOT_X_MM} mm")
@@ -333,9 +367,9 @@ def main():
     print()
 
     segment = build_segment(
-        phone_width=args.phone_width,
-        phone_thickness=args.phone_thickness,
-        phone_height=args.phone_height,
+        phone_width=phone_width,
+        phone_thickness=phone_thickness,
+        phone_height=phone_height,
     )
 
     out_path = args.output

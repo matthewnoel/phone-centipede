@@ -6,30 +6,39 @@ Generates STLs for a modular phone stand.
 
 - [uv](https://docs.astral.sh/uv/)
 
-## Setup
+## Environment Setup
 
 ```sh
 uv venv .venv --python 3.12
 uv pip install -r requirements.txt
+# optional requirements for code contributors
+uv pip install -r requirements-dev.txt
 ```
 
 ## Usage
+
+With default sizes:
 
 ```sh
 .venv/bin/python generate.py
 ```
 
-With a few overrides:
+Use dimensions for a known phone model (see `phones.py` for the list):
+
+```sh
+.venv/bin/python generate.py --phone iPhone17Pro
+```
+
+Using custom phone measurements:
 
 ```sh
 .venv/bin/python generate.py --phone-width 80 --phone-height 150 --phone-thickness 12 --output custom_filename.stl
 ```
 
-## Development
+Individual `--phone-width` / `--phone-thickness` / `--phone-height` flags override
+values from `--phone` when both are given.
 
-```sh
-uv pip install -r requirements-dev.txt
-```
+## Development
 
 Format the code
 
