@@ -16,6 +16,7 @@ CLI. See --help.
 from __future__ import annotations
 
 import argparse
+import math
 from pathlib import Path
 
 from build123d import (
@@ -33,14 +34,16 @@ SEGMENT_DEPTH_MM       = 55.0    # Y: front-to-back depth
 SLAB_THICKNESS_MM      = 18.8    # Z: vertical thickness
 
 # === Phone slot =============================================================
-PHONE_WIDTH_MM         = 78.0    # phone's face long-edge dimension (along X)
-PHONE_THICKNESS_MM     = 10.0    # phone's thickness (perpendicular to face)
-SLOT_DEPTH_MM          = 12.0    # cut depth into slab along the slot's axis
-SLOT_ANGLE_DEG         = 10.0    # slot tilt off vertical, leaning toward +Y
-SLOT_TOLERANCE_MM      = 1.0     # uniform inflation of slot vs phone dims
-SLOT_X_DEFAULT_MM      = SEGMENT_LENGTH_MM / 2  # slot center X from -X end
-SLOT_Y_OFFSET_MM       = 0.0     # slot center Y (0 = mid-depth of slab)
-_SLOT_TOP_OVERSHOOT_MM = 6.0     # cutter extends above slab for clean cut
+# The slot is a through-hole: a phone seated in it rests on whatever surface
+# the stand sits on (the desk), not on a floor inside the slab.
+PHONE_WIDTH_MM            = 78.0   # phone's face long-edge dimension (along X)
+PHONE_THICKNESS_MM        = 10.0   # phone's thickness (perpendicular to face)
+SLOT_ANGLE_DEG            = 10.0   # slot tilt off vertical, leaning toward +Y
+SLOT_TOLERANCE_MM         = 1.0    # uniform inflation of slot vs phone dims
+SLOT_X_DEFAULT_MM         = SEGMENT_LENGTH_MM / 2  # slot center X from -X end
+SLOT_Y_OFFSET_MM          = 0.0    # slot center Y (0 = mid-depth of slab)
+_SLOT_TOP_OVERSHOOT_MM    = 6.0    # cutter extends above slab top for clean cut
+_SLOT_BOTTOM_OVERSHOOT_MM = 5.0    # cutter extends below slab bottom for clean cut
 
 # === Dovetail joints ========================================================
 # Tails (male) on +Y face; mortises (female) on -Y face. When a segment is
@@ -131,17 +134,23 @@ def _build_mortise():
 def _build_slot_cutter(slot_w: float, slot_t: float, angle_deg: float):
     """Phone-slot cutter, oriented so the slot's opening center is at the
     origin (z=0) and its local +Z (= "up out of the slot") tips toward +Y
-    by `angle_deg`.
+    by `angle_deg`. Sized to cut entirely through the slab.
 
-    The cutter extends SLOT_DEPTH_MM below the opening along its tilted axis
-    and _SLOT_TOP_OVERSHOOT_MM above, so even the high corner of the tilted
-    top face clears the slab.
+    Reach below the opening along the tilted axis must be at least
+    (SLAB_THICKNESS + slot_t/2 * sin(angle)) / cos(angle): the tilt magnifies
+    the through-thickness reach, and the slot's bottom face is also tilted so
+    its highest corner lags the tip by another slot_t/2 * sin(angle) in world
+    Z. Anything less leaves a sliver of floor near the +Y edge of the bottom.
     """
-    total_len = SLOT_DEPTH_MM + _SLOT_TOP_OVERSHOOT_MM
+    cos_a = math.cos(math.radians(angle_deg))
+    sin_a = math.sin(math.radians(angle_deg))
+    bot_extent = (SLAB_THICKNESS_MM + slot_t / 2 * sin_a) / cos_a + _SLOT_BOTTOM_OVERSHOOT_MM
+    top_extent = _SLOT_TOP_OVERSHOOT_MM
+    total_len = bot_extent + top_extent
     cutter = Box(slot_w, slot_t, total_len)
-    # Default Box is centered. Shift so the local opening (transition from
-    # outside to inside the slab) sits at z=0.
-    cutter = cutter.translate((0, 0, (_SLOT_TOP_OVERSHOOT_MM - SLOT_DEPTH_MM) / 2))
+    # Default Box is centered. Shift so the local opening (z=0) sits at the
+    # boundary between the top overshoot and the bottom through-cut portion.
+    cutter = cutter.translate((0, 0, (top_extent - bot_extent) / 2))
     # Negative rotation about +X (right-hand rule) tips local +Z toward +Y,
     # which is the direction the phone leans.
     return cutter.rotate(Axis.X, -angle_deg)
@@ -237,8 +246,7 @@ def main():
     print(f"  Slab (L x D x T)     : {SEGMENT_LENGTH_MM} x {SEGMENT_DEPTH_MM} x {SLAB_THICKNESS_MM} mm")
     print(f"  Phone width  (X)     : {args.phone_width} mm")
     print(f"  Phone thickness      : {args.phone_thickness} mm")
-    print(f"  Slot depth           : {SLOT_DEPTH_MM} mm")
-    print(f"  Slot tolerance       : {SLOT_TOLERANCE_MM} mm")
+    print(f"  Slot tolerance       : {SLOT_TOLERANCE_MM} mm (slot cuts fully through)")
     print(f"  Slot angle           : {args.slot_angle} deg (toward +Y)")
     print(f"  Slot X (from -X end) : {args.slot_x} mm")
     print(f"  Slot Y offset        : {SLOT_Y_OFFSET_MM} mm")
