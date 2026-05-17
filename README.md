@@ -34,5 +34,5 @@ uv pip install -r requirements-dev.txt
 Format the code
 
 ```sh
-.venv/bin/black generate.py
+.venv/bin/black *.py
 ```

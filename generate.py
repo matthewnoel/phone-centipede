@@ -41,7 +41,7 @@ PHONE_THICKNESS_MM = 10.0  # phone's thickness (perpendicular to face)
 SLOT_ANGLE_DEG = 10.0  # slot tilt off vertical, leaning toward +Y
 SLOT_TOLERANCE_MM = 1.0  # uniform inflation of slot vs phone dims
 SLOT_X_MM = SEGMENT_LENGTH_MM / 2  # slot center X from -X end
-SLOT_Y_OFFSET_MM = 0.0  # slot center Y (0 = mid-depth of slab)
+SLOT_Y_OFFSET_MM = -8.0  # slot center Y (0 = mid-depth of slab)
 _SLOT_TOP_OVERSHOOT_MM = 6.0  # cutter extends above slab top for clean cut
 _SLOT_BOTTOM_OVERSHOOT_MM = 5.0  # cutter extends below slab bottom for clean cut
 
