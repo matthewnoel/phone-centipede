@@ -81,7 +81,8 @@ DOVETAIL_CLEARANCE_MM = 0.3  # uniform mortise inflation vs tail
 # Boolean ops never touch a coincident slab face.
 _FACE_OVERLAP_MM = 1.0
 
-DEFAULT_OUTPUT = "phone-centipede.stl"
+DEFAULT_SEGMENT_OUTPUT = "phone-centipede.stl"
+DEFAULT_NAMEPLATE_OUTPUT = "phone-centipede-nameplate.stl"
 
 
 # ----------------------------------------------------------------------------
@@ -257,6 +258,42 @@ def build_segment(
     return slab
 
 
+def build_nameplate():
+    """Wedge nameplate that slides into one segment's front (-Y) mortises.
+
+    Right-triangular prism, length SEGMENT_LENGTH_MM in X, centered on the X
+    origin. Cross-section in YZ:
+      - vertical mating face at y=0, spanning z=0..SLAB_THICKNESS_MM
+      - horizontal base on the desk at z=0, spanning y=0..-SLAB_THICKNESS_MM
+      - 45° slanted writing face from (y=0, z=T) to (y=-T, z=0), facing
+        the user (-Y / +Z)
+    The top of the slant lines up with the top of the slab when seated.
+
+    Two male tails on the +Y face at the same X positions as a segment's
+    tails — bottom-aligned at z=0 for the same reasons (build-plate support;
+    the segment's mortise opens at its bottom face, so the tail must enter
+    along Z). Reuses `_build_tail()` unchanged."""
+    T = SLAB_THICKNESS_MM
+    L = SEGMENT_LENGTH_MM
+    # Author the triangular cross-section in the XY plane (the make_face
+    # default), wound CCW so the face's normal is +Z and extrude grows in
+    # +Z. The vertices map local (x, y) → world (z, -y) after the rotation
+    # below.
+    pts = [(0, 0), (0, -T), (-T, 0)]
+    face = make_face(Polyline(*pts, close=True))
+    wedge = extrude(face, amount=L)
+    # Rotate 90° about Y: local +Z (long axis, length L) → world +X; local
+    # +X (back of wedge) → world +Z (up). After rotation the prism runs
+    # x=0..L; recenter on the X origin.
+    wedge = wedge.rotate(Axis.Y, 90).translate((-L / 2, 0, 0))
+
+    tail = _build_tail()
+    wedge = wedge + tail.translate((-L / 2 + DOVETAIL_X_INSET_MM, 0, 0))
+    wedge = wedge + tail.translate((L / 2 - DOVETAIL_X_INSET_MM, 0, 0))
+
+    return wedge
+
+
 # ----------------------------------------------------------------------------
 # CLI
 # ----------------------------------------------------------------------------
@@ -312,11 +349,25 @@ def _parse_args():
         ),
     )
     p.add_argument(
+        "--component",
+        choices=["segment", "nameplate"],
+        default="segment",
+        help=(
+            "Which artifact to build. The nameplate is a 45° wedge that "
+            "slots into the two front (-Y) mortises of one segment. "
+            "Default: segment. Phone flags are ignored for the nameplate."
+        ),
+    )
+    p.add_argument(
         "--output",
         type=Path,
-        default=Path(DEFAULT_OUTPUT),
+        default=None,
         metavar="PATH",
-        help=f"STL output path. Default: {DEFAULT_OUTPUT}",
+        help=(
+            f"STL output path. Default depends on --component: "
+            f"{DEFAULT_SEGMENT_OUTPUT} for segment, "
+            f"{DEFAULT_NAMEPLATE_OUTPUT} for nameplate."
+        ),
     )
     return p.parse_args()
 
@@ -324,58 +375,82 @@ def _parse_args():
 def main():
     args = _parse_args()
 
-    if args.phone is not None:
-        try:
-            config = lookup_phone(args.phone)
-        except ValueError as e:
-            raise SystemExit(str(e))
+    if args.output is None:
+        args.output = Path(
+            DEFAULT_SEGMENT_OUTPUT
+            if args.component == "segment"
+            else DEFAULT_NAMEPLATE_OUTPUT
+        )
+
+    if args.component == "segment":
+        if args.phone is not None:
+            try:
+                config = lookup_phone(args.phone)
+            except ValueError as e:
+                raise SystemExit(str(e))
+        else:
+            config = {}
+
+        def _resolve(cli_value, key, fallback):
+            if cli_value is not None:
+                return cli_value
+            return config.get(key, fallback)
+
+        phone_width = _resolve(args.phone_width, "phone_width", PHONE_WIDTH_MM)
+        phone_thickness = _resolve(
+            args.phone_thickness, "phone_thickness", PHONE_THICKNESS_MM
+        )
+        phone_height = _resolve(args.phone_height, "phone_height", PHONE_HEIGHT_MM)
+
+        D, slot_y = _depth_and_slot_y(phone_height, phone_thickness)
+
+        print("Phone holder segment — resolved parameters:")
+        print(
+            f"  Slab (L x D x T)     : {SEGMENT_LENGTH_MM} x {D:.2f} x {SLAB_THICKNESS_MM} mm"
+        )
+        if args.phone is not None:
+            print(f"  Phone model          : {args.phone}")
+        print(f"  Phone width  (X)     : {phone_width} mm")
+        print(f"  Phone thickness      : {phone_thickness} mm")
+        print(f"  Phone height         : {phone_height} mm")
+        print(
+            f"  Slot tolerance       : {SLOT_TOLERANCE_MM} mm (slot cuts fully through)"
+        )
+        print(f"  Slot angle           : {SLOT_ANGLE_DEG} deg (toward +Y)")
+        print(f"  Slot X (from -X end) : {SLOT_X_MM} mm")
+        print(f"  Slot Y offset        : {slot_y:.2f} mm")
+        print(f"  Dovetail wide/narrow : {DOVETAIL_WIDE_MM} / {DOVETAIL_NARROW_MM} mm")
+        print(f"  Dovetail protrusion  : {DOVETAIL_PROTRUSION_MM} mm")
+        print(f"  Dovetail height  (Z) : {DOVETAIL_HEIGHT_MM} mm")
+        print(f"  Dovetail X-inset     : {DOVETAIL_X_INSET_MM} mm")
+        print(f"  Dovetail clearance   : {DOVETAIL_CLEARANCE_MM} mm")
+        print(f"  Output               : {args.output}")
+        print()
+
+        solid = build_segment(
+            phone_width=phone_width,
+            phone_thickness=phone_thickness,
+            phone_height=phone_height,
+        )
     else:
-        config = {}
+        print("Nameplate — resolved parameters:")
+        print(
+            f"  Wedge (L x D x T)    : {SEGMENT_LENGTH_MM} x {SLAB_THICKNESS_MM} x {SLAB_THICKNESS_MM} mm"
+        )
+        print(f"  Slant angle          : 45 deg (faces -Y / +Z)")
+        print(f"  Dovetail wide/narrow : {DOVETAIL_WIDE_MM} / {DOVETAIL_NARROW_MM} mm")
+        print(f"  Dovetail protrusion  : {DOVETAIL_PROTRUSION_MM} mm")
+        print(f"  Dovetail height  (Z) : {DOVETAIL_HEIGHT_MM} mm")
+        print(f"  Dovetail X-inset     : {DOVETAIL_X_INSET_MM} mm")
+        print(f"  Output               : {args.output}")
+        print()
 
-    def _resolve(cli_value, key, fallback):
-        if cli_value is not None:
-            return cli_value
-        return config.get(key, fallback)
-
-    phone_width = _resolve(args.phone_width, "phone_width", PHONE_WIDTH_MM)
-    phone_thickness = _resolve(
-        args.phone_thickness, "phone_thickness", PHONE_THICKNESS_MM
-    )
-    phone_height = _resolve(args.phone_height, "phone_height", PHONE_HEIGHT_MM)
-
-    D, slot_y = _depth_and_slot_y(phone_height, phone_thickness)
-
-    print("Phone holder segment — resolved parameters:")
-    print(
-        f"  Slab (L x D x T)     : {SEGMENT_LENGTH_MM} x {D:.2f} x {SLAB_THICKNESS_MM} mm"
-    )
-    if args.phone is not None:
-        print(f"  Phone model          : {args.phone}")
-    print(f"  Phone width  (X)     : {phone_width} mm")
-    print(f"  Phone thickness      : {phone_thickness} mm")
-    print(f"  Phone height         : {phone_height} mm")
-    print(f"  Slot tolerance       : {SLOT_TOLERANCE_MM} mm (slot cuts fully through)")
-    print(f"  Slot angle           : {SLOT_ANGLE_DEG} deg (toward +Y)")
-    print(f"  Slot X (from -X end) : {SLOT_X_MM} mm")
-    print(f"  Slot Y offset        : {slot_y:.2f} mm")
-    print(f"  Dovetail wide/narrow : {DOVETAIL_WIDE_MM} / {DOVETAIL_NARROW_MM} mm")
-    print(f"  Dovetail protrusion  : {DOVETAIL_PROTRUSION_MM} mm")
-    print(f"  Dovetail height  (Z) : {DOVETAIL_HEIGHT_MM} mm")
-    print(f"  Dovetail X-inset     : {DOVETAIL_X_INSET_MM} mm")
-    print(f"  Dovetail clearance   : {DOVETAIL_CLEARANCE_MM} mm")
-    print(f"  Output               : {args.output}")
-    print()
-
-    segment = build_segment(
-        phone_width=phone_width,
-        phone_thickness=phone_thickness,
-        phone_height=phone_height,
-    )
+        solid = build_nameplate()
 
     out_path = args.output
     if out_path.parent and str(out_path.parent) not in ("", "."):
         out_path.parent.mkdir(parents=True, exist_ok=True)
-    export_stl(segment, str(out_path))
+    export_stl(solid, str(out_path))
     print(f"Wrote STL: {out_path}")
 
 

@@ -38,6 +38,13 @@ Using custom phone measurements:
 Individual `--phone-width` / `--phone-thickness` / `--phone-height` flags override
 values from `--phone` when both are given.
 
+Build a nameplate — a 45° wedge that slides into the two front dovetails of any
+segment, for writing on, stickers, etc.:
+
+```sh
+.venv/bin/python generate.py --component nameplate
+```
+
 ## Development
 
 Format the code
