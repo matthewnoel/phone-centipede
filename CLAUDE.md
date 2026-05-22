@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A single-file Python CLI (`generate.py`) that uses `build123d` to produce an STL for one segment of a sectioned, dovetail-mating desk phone holder. Multiple printed segments connect front-to-back via the dovetails. All geometry is parameterized via named constants at the top of `generate.py`; a small subset is exposed via argparse — see `--help`. Default output is `phone-centipede.stl` in CWD.
+A single-file Python CLI (`generate.py`) that uses `build123d` to produce STLs for a sectioned, dovetail-mating desk phone holder. The `--component` flag selects the artifact: `segment` (the default) — one slab section, of which multiple printed copies connect front-to-back via the dovetails — or `nameplate` — a 45° wedge that slots into the two front (-Y) mortises of a segment. All geometry is parameterized via named constants at the top of `generate.py`; a small subset is exposed via argparse — see `--help`. Phone dimensions given via the `--phone-*` flags are millimeters unless `--units inches` is passed, which converts them to mm. Default output, written to CWD, is `phone-centipede.stl` for a segment and `phone-centipede-nameplate.stl` for a nameplate.
 
 There are no tests. The artifact is verified by re-slicing in Bambu Studio; for quick sanity checks, inspect the STL's bounding box (default args: X = ±50.8, Y ≈ -26.21..+32.21 — slab depth ≈ 52.42 mm + 6 mm tail protrusion on +Y, Z = 0..18.8). Slab depth is now derived from `--phone-height` by `_depth_and_slot_y` (so the phone CoG lands at the segment-footprint midpoint); the front-of-slab → slot-center distance is held constant at `SLOT_FRONT_OFFSET_MM = 19.5`.
 
