@@ -38,6 +38,16 @@ Using custom phone measurements:
 Individual `--phone-width` / `--phone-thickness` / `--phone-height` flags override
 values from `--phone` when both are given.
 
+Phone measurements default to millimeters. Pass `--units inches` to give them in
+inches instead — they are converted to mm before printing:
+
+```sh
+.venv/bin/python generate.py --units inches --phone-width 3.07 --phone-thickness 0.39 --phone-height 5.9
+```
+
+`--units` affects only the `--phone-*` flags you type. Values from `--phone` and
+the built-in defaults are always millimeters.
+
 Build a nameplate — a 45° wedge that slides into the two front dovetails of any
 segment, for writing on, stickers, etc.:
 

@@ -37,6 +37,9 @@ SLAB_THICKNESS_MM = 18.8  # Z: vertical thickness
 # `_depth_and_slot_y` so the phone's center of gravity lands at the segment
 # midpoint.
 
+# === Units ==================================================================
+MM_PER_INCH = 25.4  # convert --phone-* values when --units inches
+
 # === Phone slot =============================================================
 # The slot is a through-hole: a phone seated in it rests on whatever surface
 # the stand sits on (the desk), not on a floor inside the slab.
@@ -321,7 +324,7 @@ def _parse_args():
         "--phone-width",
         type=float,
         default=None,
-        metavar="MM",
+        metavar="LENGTH",
         help=(
             "Long dimension of the phone slot (parallel to X — the long edge "
             f"of the phone's face). Default: {PHONE_WIDTH_MM} mm."
@@ -331,7 +334,7 @@ def _parse_args():
         "--phone-thickness",
         type=float,
         default=None,
-        metavar="MM",
+        metavar="LENGTH",
         help=(
             "Short dimension of the phone slot (the phone's thickness, "
             f"perpendicular to its face). Default: {PHONE_THICKNESS_MM} mm."
@@ -341,11 +344,22 @@ def _parse_args():
         "--phone-height",
         type=float,
         default=None,
-        metavar="MM",
+        metavar="LENGTH",
         help=(
             "Phone dimension along the tilted slot axis. Drives slab depth "
             "so the phone's center of gravity lands at the segment midpoint. "
             f"Default: {PHONE_HEIGHT_MM} mm."
+        ),
+    )
+    p.add_argument(
+        "--units",
+        choices=["mm", "inches"],
+        default="mm",
+        help=(
+            "Unit for the --phone-width/--phone-thickness/--phone-height "
+            "values you pass. With 'inches', those values are converted to "
+            "mm before use. Values from --phone and built-in defaults are "
+            "always mm. Default: mm."
         ),
     )
     p.add_argument(
@@ -391,6 +405,15 @@ def main():
         else:
             config = {}
 
+        # Convert user-typed phone dimensions from inches to mm. Only the
+        # values actually passed on the command line are converted — values
+        # from --phone and the built-in defaults are already mm.
+        if args.units == "inches":
+            for _attr in ("phone_width", "phone_thickness", "phone_height"):
+                _typed = getattr(args, _attr)
+                if _typed is not None:
+                    setattr(args, _attr, _typed * MM_PER_INCH)
+
         def _resolve(cli_value, key, fallback):
             if cli_value is not None:
                 return cli_value
@@ -405,6 +428,7 @@ def main():
         D, slot_y = _depth_and_slot_y(phone_height, phone_thickness)
 
         print("Phone holder segment — resolved parameters:")
+        print(f"  Input units          : {args.units}")
         print(
             f"  Slab (L x D x T)     : {SEGMENT_LENGTH_MM} x {D:.2f} x {SLAB_THICKNESS_MM} mm"
         )
