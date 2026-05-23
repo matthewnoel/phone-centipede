@@ -7,6 +7,16 @@ phone_thickness is perpendicular to the face. All values in millimeters.
 """
 
 PHONES = {
+    "iPhone11": {
+        "phone_width": 75.7,
+        "phone_height": 150.9,
+        "phone_thickness": 8.3,
+    },
+    "iPhone12": {
+        "phone_width": 71.5,
+        "phone_height": 146.7,
+        "phone_thickness": 7.4,
+    },
     "iPhone17Pro": {
         "phone_width": 73.0,
         "phone_height": 150.8,
